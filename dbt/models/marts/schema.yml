@@ -1,0 +1,260 @@
+version: 2
+models:
+- name: mart_daily_state_metrics
+  description: Дневные метрики по штатам. Одна строка на дату и штат.
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - transaction_date
+        - us_state
+  columns:
+  - name: transaction_date
+    description: Дата операции в исходном времени.
+    data_tests:
+    - not_null
+  - name: us_state
+    description: Двухбуквенный код штата США; датасет также включает DC.
+    data_tests:
+    - not_null
+  - name: transaction_count
+    description: Общее число транзакций в группе.
+    data_tests:
+    - not_null
+  - name: total_amount
+    description: Сумма всех операций в группе.
+    data_tests:
+    - not_null
+  - name: avg_amount
+    description: Средняя сумма операции.
+    data_tests:
+    - not_null
+  - name: p95_amount
+    description: 'Точный 95-й перцентиль суммы: quantileExact(0.95).'
+    data_tests:
+    - not_null
+  - name: large_transaction_share
+    description: Доля операций с amount >= 1000 в процентах (0–100).
+    data_tests:
+    - not_null
+- name: mart_fraud_by_category
+  description: Уровень фрода по категориям. Для рейтинга сортируйте fraud_rate по убыванию.
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - category
+  columns:
+  - name: category
+    description: Категория покупки.
+    data_tests:
+    - not_null
+    - unique
+  - name: transaction_count
+    description: Общее число транзакций в группе.
+    data_tests:
+    - not_null
+  - name: fraud_count
+    description: Число операций с истинной меткой фрода 1.
+    data_tests:
+    - not_null
+  - name: fraud_rate
+    description: 'Доля мошеннических операций в процентах: 100 * fraud_count / transaction_count.'
+    data_tests:
+    - not_null
+  - name: total_amount
+    description: Сумма всех операций в группе.
+    data_tests:
+    - not_null
+  - name: fraud_amount
+    description: Сумма операций с истинной меткой фрода 1.
+    data_tests:
+    - not_null
+- name: mart_fraud_by_state
+  description: 'География фрода: штат, клиенты, мерчанты и суммы.'
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - us_state
+  columns:
+  - name: us_state
+    description: Двухбуквенный код штата США; датасет также включает DC.
+    data_tests:
+    - not_null
+    - unique
+  - name: transaction_count
+    description: Общее число транзакций в группе.
+    data_tests:
+    - not_null
+  - name: fraud_count
+    description: Число операций с истинной меткой фрода 1.
+    data_tests:
+    - not_null
+  - name: fraud_rate
+    description: 'Доля мошеннических операций в процентах: 100 * fraud_count / transaction_count.'
+    data_tests:
+    - not_null
+  - name: unique_customers
+    description: Точное число уникальных суррогатных ключей клиентов.
+    data_tests:
+    - not_null
+  - name: unique_merchants
+    description: Точное число уникальных мерчантов.
+    data_tests:
+    - not_null
+  - name: total_amount
+    description: Сумма всех операций в группе.
+    data_tests:
+    - not_null
+  - name: fraud_amount
+    description: Сумма операций с истинной меткой фрода 1.
+    data_tests:
+    - not_null
+- name: mart_customer_risk_profile
+  description: Наблюдаемая история и сегмент риска каждого клиента.
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - customer_id
+  columns:
+  - name: customer_id
+    description: Суррогатный ключ dbt_utils по имени, фамилии, адресу и индексу. В датасете нет банковского
+      ID; совпавшие реквизиты считаются одним клиентом.
+    data_tests:
+    - not_null
+    - unique
+  - name: first_transaction_at
+    description: Время первой наблюдаемой операции клиента.
+    data_tests:
+    - not_null
+  - name: last_transaction_at
+    description: Время последней наблюдаемой операции клиента.
+    data_tests:
+    - not_null
+  - name: transaction_count
+    description: Общее число транзакций в группе.
+    data_tests:
+    - not_null
+  - name: fraud_count
+    description: Число операций с истинной меткой фрода 1.
+    data_tests:
+    - not_null
+  - name: fraud_rate
+    description: 'Доля мошеннических операций в процентах: 100 * fraud_count / transaction_count.'
+    data_tests:
+    - not_null
+  - name: total_amount
+    description: Сумма всех операций в группе.
+    data_tests:
+    - not_null
+  - name: avg_amount
+    description: Средняя сумма операции.
+    data_tests:
+    - not_null
+  - name: risk_level
+    description: HIGH при fraud_rate >= 5%, MEDIUM при >= 1%, иначе LOW. Учебное правило на истории, не
+      предсказание модели.
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - HIGH
+          - MEDIUM
+          - LOW
+- name: mart_hourly_fraud_pattern
+  description: Фрод по дню недели и часу исходного времени. Часовой пояс в CSV отсутствует.
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - day_of_week
+        - transaction_hour
+  columns:
+  - name: day_of_week
+    description: 'День недели ISO: 1 — понедельник, 7 — воскресенье. Макрос dbt_date.'
+    data_tests:
+    - not_null
+  - name: transaction_hour
+    description: 'Час операции: 0–23, исходное время без информации о часовом поясе.'
+    data_tests:
+    - not_null
+  - name: transaction_count
+    description: Общее число транзакций в группе.
+    data_tests:
+    - not_null
+  - name: fraud_count
+    description: Число операций с истинной меткой фрода 1.
+    data_tests:
+    - not_null
+  - name: fraud_rate
+    description: 'Доля мошеннических операций в процентах: 100 * fraud_count / transaction_count.'
+    data_tests:
+    - not_null
+  - name: total_amount
+    description: Сумма всех операций в группе.
+    data_tests:
+    - not_null
+  - name: fraud_amount
+    description: Сумма операций с истинной меткой фрода 1.
+    data_tests:
+    - not_null
+  - name: is_high_risk_window
+    description: 1, если fraud_rate окна выше общего fraud_rate всех транзакций; иначе 0.
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - 0
+          - 1
+          quote: false
+- name: mart_merchant_analytics
+  description: Оборот, фрод и признак подозрительности мерчанта.
+  data_tests:
+  - dbt_utils.unique_combination_of_columns:
+      arguments:
+        combination_of_columns:
+        - merchant
+  columns:
+  - name: merchant
+    description: Название мерчанта.
+    data_tests:
+    - not_null
+    - unique
+  - name: transaction_count
+    description: Общее число транзакций в группе.
+    data_tests:
+    - not_null
+  - name: unique_customers
+    description: Точное число уникальных суррогатных ключей клиентов.
+    data_tests:
+    - not_null
+  - name: total_amount
+    description: Сумма всех операций в группе.
+    data_tests:
+    - not_null
+  - name: avg_amount
+    description: Средняя сумма операции.
+    data_tests:
+    - not_null
+  - name: fraud_count
+    description: Число операций с истинной меткой фрода 1.
+    data_tests:
+    - not_null
+  - name: fraud_rate
+    description: 'Доля мошеннических операций в процентах: 100 * fraud_count / transaction_count.'
+    data_tests:
+    - not_null
+  - name: is_suspicious
+    description: 1 при fraud_rate >= 5% и не менее 10 операций; иначе 0. Учебное правило.
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - 0
+          - 1
+          quote: false

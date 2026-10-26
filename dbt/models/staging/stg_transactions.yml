@@ -1,0 +1,154 @@
+version: 2
+models:
+- name: stg_transactions
+  description: Очистка пробелов, нормализация регистра, приведение типов, ключ клиента, календарные признаки
+    и сегмент суммы. Ошибочные данные выявляются тестами, строки не отбрасываются.
+  data_tests:
+  - dbt_expectations.expect_table_row_count_to_be_between:
+      arguments:
+        min_value: 1
+  columns:
+  - name: transaction_id
+    description: 'Идентификатор producer из ДЗ №2: имя CSV и номер строки.'
+    data_tests:
+    - not_null
+    - unique
+  - name: transaction_time
+    description: Время операции из исходного CSV, без пересчёта часового пояса.
+    data_tests:
+    - not_null
+  - name: merchant
+    description: Название мерчанта.
+    data_tests:
+    - not_null
+  - name: category
+    description: Категория покупки.
+    data_tests:
+    - not_null
+  - name: amount
+    description: Сумма операции в денежных единицах исходного датасета.
+    data_tests:
+    - not_null
+  - name: first_name
+    description: Имя клиента.
+    data_tests:
+    - not_null
+  - name: last_name
+    description: Фамилия клиента.
+    data_tests:
+    - not_null
+  - name: street
+    description: Адрес клиента, используется для различения однофамильцев.
+    data_tests:
+    - not_null
+  - name: post_code
+    description: Почтовый индекс клиента, хранится строкой.
+    data_tests:
+    - not_null
+  - name: gender
+    description: 'Пол клиента: M или F.'
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - M
+          - F
+          quote: true
+  - name: us_state
+    description: Двухбуквенный код штата США; датасет также включает DC.
+    data_tests:
+    - not_null
+  - name: latitude
+    description: Широта клиента.
+    data_tests:
+    - not_null
+  - name: longitude
+    description: Долгота клиента.
+    data_tests:
+    - not_null
+  - name: merchant_latitude
+    description: Широта мерчанта.
+    data_tests:
+    - not_null
+  - name: merchant_longitude
+    description: Долгота мерчанта.
+    data_tests:
+    - not_null
+  - name: is_fraud
+    description: 'Истинная метка фрода: 1 — фрод, 0 — обычная операция. Требуется размеченный train.csv.'
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - 0
+          - 1
+          quote: false
+  - name: customer_id
+    description: Суррогатный ключ dbt_utils по имени, фамилии, адресу и индексу. В датасете нет банковского
+      ID; совпавшие реквизиты считаются одним клиентом.
+    data_tests:
+    - not_null
+  - name: transaction_date
+    description: Дата операции в исходном времени.
+    data_tests:
+    - not_null
+  - name: transaction_hour
+    description: 'Час операции: 0–23, исходное время без информации о часовом поясе.'
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - 0
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          - 8
+          - 9
+          - 10
+          - 11
+          - 12
+          - 13
+          - 14
+          - 15
+          - 16
+          - 17
+          - 18
+          - 19
+          - 20
+          - 21
+          - 22
+          - 23
+          quote: false
+  - name: day_of_week
+    description: 'День недели ISO: 1 — понедельник, 7 — воскресенье. Макрос dbt_date.'
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          - 6
+          - 7
+          quote: false
+  - name: amount_bucket
+    description: 'Сегмент суммы: SMALL < 100, MEDIUM от 100 до 1000, LARGE >= 1000.'
+    data_tests:
+    - not_null
+    - accepted_values:
+        arguments:
+          values:
+          - SMALL
+          - MEDIUM
+          - LARGE
+          quote: true

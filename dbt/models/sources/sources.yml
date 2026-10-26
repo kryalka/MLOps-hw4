@@ -1,0 +1,59 @@
+version: 2
+sources:
+- name: raw
+  database: ''
+  schema: transactions_db
+  description: 'Источник из ДЗ по ClickHouse: представление над fraud.transactions_base из ДЗ №2. Загружается
+    train.csv из ДЗ №3 тем же producer.'
+  tables:
+  - name: transactions
+    description: Сырые размеченные транзакции; повторная отправка того же CSV создаёт дубли и выявляется
+      тестом ID.
+    columns:
+    - name: transaction_id
+      description: 'Идентификатор producer из ДЗ №2: имя CSV и номер строки.'
+      data_tests:
+      - not_null
+      - unique
+    - name: transaction_time
+      description: Время операции из исходного CSV, без пересчёта часового пояса.
+      data_tests:
+      - not_null
+    - name: merch
+      description: Название мерчанта.
+    - name: cat_id
+      description: Категория покупки.
+    - name: amount
+      description: Сумма операции в денежных единицах исходного датасета.
+      data_tests:
+      - not_null
+    - name: name_1
+      description: Имя клиента.
+    - name: name_2
+      description: Фамилия клиента.
+    - name: gender
+      description: 'Пол клиента: M или F.'
+    - name: street
+      description: Адрес клиента, используется для различения однофамильцев.
+    - name: post_code
+      description: Почтовый индекс клиента, хранится строкой.
+    - name: us_state
+      description: Двухбуквенный код штата США; датасет также включает DC.
+    - name: lat
+      description: Широта клиента.
+    - name: lon
+      description: Долгота клиента.
+    - name: merchant_lat
+      description: Широта мерчанта.
+    - name: merchant_lon
+      description: Долгота мерчанта.
+    - name: target
+      description: 'Истинная метка фрода: 1 — фрод, 0 — обычная операция. Требуется размеченный train.csv.'
+      data_tests:
+      - not_null
+      - accepted_values:
+          arguments:
+            values:
+            - 0
+            - 1
+            quote: false

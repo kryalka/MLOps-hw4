@@ -1,0 +1,202 @@
+version: 2
+unit_tests:
+- name: staging_amount_boundaries
+  model: stg_transactions
+  description: Проверка всех границ сегментации сумм, включая 0, 100 и 1000.
+  given:
+  - input: source('raw', 'transactions')
+    rows:
+    - transaction_id: '0'
+      transaction_time: '2024-01-07 23:05:00'
+      merch: ' shop '
+      cat_id: ' GROCERY_POS '
+      amount: 0
+      name_1: ' Anna '
+      name_2: ' Smith '
+      street: ' Main St '
+      post_code: '00123'
+      gender: ' f '
+      us_state: ' ca '
+      lat: 34.0
+      lon: -118.0
+      merchant_lat: 34.1
+      merchant_lon: -118.1
+      target: 1
+    - transaction_id: '1'
+      transaction_time: '2024-01-07 23:05:00'
+      merch: ' shop '
+      cat_id: ' GROCERY_POS '
+      amount: 99.99
+      name_1: ' Anna '
+      name_2: ' Smith '
+      street: ' Main St '
+      post_code: '00123'
+      gender: ' f '
+      us_state: ' ca '
+      lat: 34.0
+      lon: -118.0
+      merchant_lat: 34.1
+      merchant_lon: -118.1
+      target: 1
+    - transaction_id: '2'
+      transaction_time: '2024-01-07 23:05:00'
+      merch: ' shop '
+      cat_id: ' GROCERY_POS '
+      amount: 100
+      name_1: ' Anna '
+      name_2: ' Smith '
+      street: ' Main St '
+      post_code: '00123'
+      gender: ' f '
+      us_state: ' ca '
+      lat: 34.0
+      lon: -118.0
+      merchant_lat: 34.1
+      merchant_lon: -118.1
+      target: 1
+    - transaction_id: '3'
+      transaction_time: '2024-01-07 23:05:00'
+      merch: ' shop '
+      cat_id: ' GROCERY_POS '
+      amount: 999.99
+      name_1: ' Anna '
+      name_2: ' Smith '
+      street: ' Main St '
+      post_code: '00123'
+      gender: ' f '
+      us_state: ' ca '
+      lat: 34.0
+      lon: -118.0
+      merchant_lat: 34.1
+      merchant_lon: -118.1
+      target: 1
+    - transaction_id: '4'
+      transaction_time: '2024-01-07 23:05:00'
+      merch: ' shop '
+      cat_id: ' GROCERY_POS '
+      amount: 1000
+      name_1: ' Anna '
+      name_2: ' Smith '
+      street: ' Main St '
+      post_code: '00123'
+      gender: ' f '
+      us_state: ' ca '
+      lat: 34.0
+      lon: -118.0
+      merchant_lat: 34.1
+      merchant_lon: -118.1
+      target: 1
+  expect:
+    rows:
+    - transaction_id: '0'
+      amount_bucket: SMALL
+    - transaction_id: '1'
+      amount_bucket: SMALL
+    - transaction_id: '2'
+      amount_bucket: MEDIUM
+    - transaction_id: '3'
+      amount_bucket: MEDIUM
+    - transaction_id: '4'
+      amount_bucket: LARGE
+- name: staging_normalization_and_calendar
+  model: stg_transactions
+  description: Очистка пробелов, регистр и ISO-дни недели на воскресенье и понедельнике.
+  given:
+  - input: source('raw', 'transactions')
+    rows:
+    - transaction_id: a
+      transaction_time: '2024-01-07 23:05:00'
+      merch: ' shop '
+      cat_id: ' GROCERY_POS '
+      amount: 99.99
+      name_1: ' Anna '
+      name_2: ' Smith '
+      street: ' Main St '
+      post_code: '00123'
+      gender: ' f '
+      us_state: ' ca '
+      lat: 34.0
+      lon: -118.0
+      merchant_lat: 34.1
+      merchant_lon: -118.1
+      target: 1
+    - transaction_id: b
+      transaction_time: '2024-01-08 00:00:00'
+      merch: ' shop '
+      cat_id: ' GROCERY_POS '
+      amount: 99.99
+      name_1: ' Anna '
+      name_2: ' Smith '
+      street: ' Main St '
+      post_code: '00123'
+      gender: ' f '
+      us_state: ' ca '
+      lat: 34.0
+      lon: -118.0
+      merchant_lat: 34.1
+      merchant_lon: -118.1
+      target: 0
+  expect:
+    rows:
+    - transaction_id: a
+      merchant: shop
+      category: grocery_pos
+      gender: F
+      us_state: CA
+      transaction_date: '2024-01-07'
+      transaction_hour: 23
+      day_of_week: 7
+      is_fraud: 1
+    - transaction_id: b
+      merchant: shop
+      category: grocery_pos
+      gender: F
+      us_state: CA
+      transaction_date: '2024-01-08'
+      transaction_hour: 0
+      day_of_week: 1
+      is_fraud: 0
+- name: category_fraud_aggregation
+  model: mart_fraud_by_category
+  description: Проверяет знаменатель fraud_rate, суммы и категорию без фрода.
+  given:
+  - input: ref('stg_transactions')
+    format: sql
+    fixture: category_transactions
+  expect:
+    rows:
+    - category: food
+      transaction_count: 2
+      fraud_count: 1
+      fraud_rate: 50
+      total_amount: 400
+      fraud_amount: 100
+    - category: travel
+      transaction_count: 1
+      fraud_count: 0
+      fraud_rate: 0
+      total_amount: 50
+      fraud_amount: 0
+- name: daily_metrics_aggregation
+  model: mart_daily_state_metrics
+  description: Проверка группировки по дате и штату, перцентиля и доли крупных операций.
+  given:
+  - input: ref('stg_transactions')
+    format: sql
+    fixture: daily_transactions
+  expect:
+    rows:
+    - transaction_date: '2024-01-01'
+      us_state: CA
+      transaction_count: 2
+      total_amount: 1100
+      avg_amount: 550
+      p95_amount: 1000
+      large_transaction_share: 50
+    - transaction_date: '2024-01-02'
+      us_state: NY
+      transaction_count: 1
+      total_amount: 50
+      avg_amount: 50
+      p95_amount: 50
+      large_transaction_share: 0
